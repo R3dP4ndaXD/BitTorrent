@@ -1,0 +1,47 @@
+peer:
+1. citesc informatiile din fisierul de intrare
+2. trimit catre tracker metadatele fisierelor pentru care voi face upload
+3. astept semnalul de la tracker ca toti clientii au ajuns in acest punct
+4. pornesc cele doua threaduri: download si upload
+
+download_thread:
+1. trimit catre tracker requesturi pentru metadatele fisierelor pe care le doresc
+2. astept de la tracker semnalul de sincronizare a clientilor
+3. incep se descarc pe rand fisierele
+3. la fiecare 10 segmente descarcate cu succes ma opresc si
+   cer din nou de la tracker lista de seeds/peers a fisierului
+4. incerc sa descarc de la peers:
+    - aleg un peer random si descarc de la el segmente pana primesc un miss
+    - cand primesc miss, aleg al peer si descarc de la el
+    - daca nici acesta nu are segmentul cerut(adica am avut 2 missuri consecutive), renunt in a cauta alt peer
+    - daca am ajuns la 10 segmente descarcate cu succes, trimit mesaj catre peer pentru a inchide conexiunea
+   (data la primul peer ales primesc din start miss, tot aleg alt peer)
+5. daca nu am atins numarul de segmente, aleg random 3 seeders si fac requsturi pentru a afla cate conexiuni deschise au
+   si il aleg pe cel cu cele mai putine conexiuni
+6. descarc de la seederul ales si inchei prin mesajul de inchide a conexiunii
+7. cand am descarcat toate segmentele din fisier, trimit un mesaj catre tracker si trec la urmatorul fisier
+8. cand am terminat de descarcat toate fisierele, trimit un semnal catre tracker si inchid threadul de download
+
+upload_thread:
+1. astept constat mesaje venite catre client prin comunicatorul de upload
+2. cand primesc un request pentru un segment pe care il detin (fie dintr-ul fisier unde actionez ca seed,
+   fie dintr-ul fisier detinut partial unde actinez ca peer) "trimit" segmentul catre client(acel mesaj de OK) si
+   marchez ca am o conexiune cu clientul care mi la cerut
+3. cand primesc request pentru nr de conexiuni deschise, raspund ca atare
+4. cand primesc mesaj de inchidre a conexiunii, marchez ca nu mai am o conexiune cu clientul respectiv
+5. cand primesc mesajul de la tracker cum ca toti clientii au terminat de descarcat fisiere,
+   inchid threadul de upload si clientul se va inchide
+
+tracker:
+1. primesc de la fiecare client lista de metadate a fisiele pentru care face upload.
+   in acest punct tin evidenta fisierelor din retea si cine e in prima faza seed la fiecare fisier in parte
+2. cand toti clientii au trimis metadatele, trimit semnalul de sincronizare catre fiecare client
+3. primesc de la fiecare client requesturi pentru metadatele fisierelor pe care le doresc
+4. trimit din nou semnalul de sincronizare catre fiecare client
+5. astept constant mesaje de la clienti
+6. cand primesc request pentru lista de seeds/peers a unui fisier, marchez clientul ca peer si ii trimit lista
+7. cand primesc un mesaj de la un client prin care anunta ca a terminat de descarcat un anume fisier,
+   marchez clientul ca seed pentru fisierul respectiv 
+8. cand primesc semnalul de finalizare a descarcarii tuturor fisierelor dorite de catre un client,
+   marchez clientul ca terminat
+9. cand toti clientii au terminat de descarcat fisiere, trimit semnalul de inchdere catre fiecare client si dupa inchid trackerul
